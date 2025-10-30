@@ -2,7 +2,7 @@
 <html lang="zh">
   <head>
     <meta charset="utf-8" />
-    <title>合约执行触发器</title>
+    <title>Base 合约执行触发器</title>
     <style>
       body {
         font-family: sans-serif;
@@ -32,18 +32,22 @@
         margin-top: 16px;
         font-size: 14px;
         color: #333;
+        text-align: center;
+        max-width: 400px;
       }
     </style>
   </head>
 
   <body>
-    <button id="send">⚡ 点击发起交易（唤起钱包）</button>
-    <div id="status">请确保已安装 MetaMask 或其他 EVM 钱包。</div>
+    <button id="send">⚡ 点击发起 Base 合约交易</button>
+    <div id="status">请确保钱包支持 Base 链（MetaMask / OKX / Rabby 等）。</div>
 
     <script>
       const contract = "0x7aFC144a0c3C62e24d8f9c592feF8F65ce631C59";
       const data =
         "0xac9650d80000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000024aab8ab0c000000000000000000000000000000000000000000000000000000000000559500000000000000000000000000000000000000000000000000000000";
+
+      const chainIdBase = "0x2105"; // Base Mainnet
 
       const button = document.getElementById("send");
       const statusEl = document.getElementById("status");
@@ -51,25 +55,67 @@
       button.onclick = async () => {
         try {
           if (!window.ethereum)
-            throw new Error("未检测到钱包（MetaMask、Rabby 等）");
+            throw new Error("未检测到钱包（MetaMask、OKX、Rabby 等）");
 
           statusEl.textContent = "⏳ 请求钱包授权...";
           await window.ethereum.request({ method: "eth_requestAccounts" });
 
+          // 检查当前网络是否为 Base 主网
+          const currentChainId = await window.ethereum.request({
+            method: "eth_chainId",
+          });
+          if (currentChainId !== chainIdBase) {
+            statusEl.textContent = "🔄 正在切换至 Base 主网...";
+            try {
+              await window.ethereum.request({
+                method: "wallet_switchEthereumChain",
+                params: [{ chainId: chainIdBase }],
+              });
+            } catch (switchError) {
+              // 如果钱包中还没有 Base 链，则添加它
+              if (switchError.code === 4902) {
+                statusEl.textContent = "➕ 正在添加 Base 网络...";
+                await window.ethereum.request({
+                  method: "wallet_addEthereumChain",
+                  params: [
+                    {
+                      chainId: chainIdBase,
+                      chainName: "Base Mainnet",
+                      nativeCurrency: {
+                        name: "Ether",
+                        symbol: "ETH",
+                        decimals: 18,
+                      },
+                      rpcUrls: ["https://mainnet.base.org"],
+                      blockExplorerUrls: ["https://basescan.org/"],
+                    },
+                  ],
+                });
+              } else {
+                throw switchError;
+              }
+            }
+          }
+
+          // 发送交易
           const tx = {
             to: contract,
             data: data,
-            value: "0x0", // 如需发送主币可修改此处
+            value: "0x0", // 如需发送 ETH，请在此修改
           };
 
-          statusEl.textContent = "💰 正在唤起钱包，请确认交易...";
+          statusEl.textContent = "💰 唤起钱包中，请确认交易...";
           const txHash = await window.ethereum.request({
             method: "eth_sendTransaction",
             params: [tx],
           });
 
-          statusEl.textContent = "✅ 交易已提交，Hash: " + txHash;
-          console.log("txHash:", txHash);
+          statusEl.innerHTML =
+            "✅ 交易已提交：<br><a href='https://basescan.org/tx/" +
+            txHash +
+            "' target='_blank'>" +
+            txHash +
+            "</a>";
         } catch (err) {
           console.error(err);
           statusEl.textContent = "❌ 出错：" + (err.message || err);
