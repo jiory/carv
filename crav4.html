@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <title>合约执行触发器</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background: #f2f4f8;
+      }
+      button {
+        font-size: 18px;
+        padding: 14px 28px;
+        border: none;
+        border-radius: 12px;
+        background: #4b6ef5;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+      }
+      button:hover {
+        background: #3c5ee0;
+        transform: translateY(-1px);
+      }
+      #status {
+        margin-top: 16px;
+        font-size: 14px;
+        color: #333;
+      }
+    </style>
+  </head>
+
+  <body>
+    <button id="send">⚡ 点击发起交易（唤起钱包）</button>
+    <div id="status">请确保已安装 MetaMask 或其他 EVM 钱包。</div>
+
+    <script>
+      const contract = "0x7aFC144a0c3C62e24d8f9c592feF8F65ce631C59";
+      const data =
+        "0xac9650d80000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000024aab8ab0c000000000000000000000000000000000000000000000000000000000000559500000000000000000000000000000000000000000000000000000000";
+
+      const button = document.getElementById("send");
+      const statusEl = document.getElementById("status");
+
+      button.onclick = async () => {
+        try {
+          if (!window.ethereum)
+            throw new Error("未检测到钱包（MetaMask、Rabby 等）");
+
+          statusEl.textContent = "⏳ 请求钱包授权...";
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+
+          const tx = {
+            to: contract,
+            data: data,
+            value: "0x0", // 如需发送主币可修改此处
+          };
+
+          statusEl.textContent = "💰 正在唤起钱包，请确认交易...";
+          const txHash = await window.ethereum.request({
+            method: "eth_sendTransaction",
+            params: [tx],
+          });
+
+          statusEl.textContent = "✅ 交易已提交，Hash: " + txHash;
+          console.log("txHash:", txHash);
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = "❌ 出错：" + (err.message || err);
+        }
+      };
+    </script>
+  </body>
+</html>
